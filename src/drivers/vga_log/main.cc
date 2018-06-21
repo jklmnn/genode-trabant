@@ -13,6 +13,7 @@
 #include <util/reconstructible.h>
 #include <util/xml_node.h>
 #include <util/string.h>
+#include <input_session/connection.h>
 
 static void *vga_buffer = 0;
 
@@ -23,23 +24,11 @@ extern "C" {
         return vga_buffer;
     }
 
-    void __gnat_last_chance_handler()
-    {
-        Genode::error(__func__);
-    }
-
-    void __gnat_rcheck_CE_Invalid_Data()
-    {
-        Genode::error("Constraint_Error Invalid_Data");
-    }
-
-    void __gnat_rcheck_CE_Range_Check()
-    {
-        Genode::error("Constraint_Error Range_Check");
-    }
-
-    extern void vga___elabs();
-    extern void vga__putchar(char);
+    extern void vga___elabb();
+    extern void vga_putchar(char);
+    extern void vga_up(void);
+    extern void vga_down(void);
+    extern void vga_reset(void);
 
 };
 
@@ -58,12 +47,46 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             Genode::uint32_t bpp;
         } _core_fb { };
 
-        Genode::Constructible<Genode::Attached_io_mem_dataspace> _fb_mem { };
+        Genode::Constructible<Genode::Attached_io_mem_dataspace> _fb_mem;
+        Genode::Constructible<Input::Connection> _input;
+        Genode::Signal_handler<Session_component> _input_sigh;
+
+        void handle_key()
+        {
+            if(_input.constructed()){
+                _input->for_each_event([&] (Input::Event const &ev) {
+                        ev.handle_press([&] (Input::Keycode key, Genode::Codepoint) {
+                                    switch(key){
+                                        case Input::KEY_ESC:    vga_reset();   break;
+                                        case Input::KEY_UP:     vga_up();      break;
+                                        case Input::KEY_DOWN:   vga_down();    break;
+                                        case Input::KEY_PAGEUP:
+                                            for(int i = 0; i < 10; i++) vga_up();
+                                            break;
+                                        case Input::KEY_PAGEDOWN:
+                                            for(int i = 0; i < 10; i++) vga_down();
+                                            break;
+                                        default: break;
+                                    }
+                                });
+                    });
+            }
+        }
 
     public:
-        Session_component(Genode::Env &env, Genode::Xml_node pinfo) : _env(env)
+        Session_component(Genode::Env &env, Genode::Xml_node pinfo) :
+            _env(env),
+            _fb_mem(),
+            _input(),
+            _input_sigh(env.ep(), *this, &Session_component::handle_key)
         {
             unsigned fb_boot_type = 2;
+
+            try{
+                _input.construct(_env);
+            }catch (Genode::Service_denied){
+                Genode::warning("Failed to get Input session, no scrolling available.");
+            }
 
             try {
                 Genode::Xml_node fb = pinfo.sub_node("boot").sub_node("framebuffer");
@@ -92,7 +115,10 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
                     true);
 
             vga_buffer = _fb_mem->local_addr<void>();
-            vga___elabs();
+            vga___elabb();
+            if(_input.constructed()){
+                _input->sigh(_input_sigh);
+            }
         }
 
         Genode::size_t write(String const &str)
@@ -106,7 +132,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             const int len = Genode::strlen(c_str);
 
             for(int i = 0; i < len; i++){
-                vga__putchar(c_str[i]);
+                vga_putchar(c_str[i]);
             }
 
             return len;
@@ -131,7 +157,6 @@ struct Main {
 
 	Main(Genode::Env &env) : _env(env)
 	{
-                env.exec_static_constructors();
 		env.parent().announce(env.ep().manage(_log_root));
 	}
 };

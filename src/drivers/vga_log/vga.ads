@@ -1,70 +1,116 @@
 with System;
-with Escape_Dfa;
 use all type System.Address;
 
 package VGA
 with
-SPARK_Mode
+SPARK_Mode,
+  Abstract_State => (Char_State,
+                     (Screen_State with External => (Effective_Writes,
+                                                     Async_Readers)),
+                     Buffer_State,
+                     Offset_State,
+                     Cursor_State)
 is
 
-    type Background_Color is new Integer range 0 .. 7
-      with Size => 3;
-    type Foreground_Color is new Integer range 0 .. 15
-      with Size => 4;
+   procedure Putchar (C : Character)
+     with
+       Global => (In_Out => (Cursor_State,
+                             Char_State,
+                             Screen_State,
+                             Buffer_State),
+                  Input  => (Offset_State)),
+       Export,
+       Convention => C,
+       External_Name => "vga_putchar";
 
-    type Symbol is
-        record
-            Blink      : Boolean;
-            Background : Background_Color;
-            Foreground : Foreground_Color;
-            Char       : Character;
-        end record with
-      Size => 16;
+   procedure Up
+     with
+       Global => (In_Out => Offset_State,
+                  Input  => Buffer_State,
+                  Output => Screen_State),
+     Depends => (Offset_State => Offset_State,
+                 Screen_State => (Buffer_State, Offset_State)),
+     Export,
+     Convention => C,
+     External_Name => "vga_up";
 
-    for Symbol use
-        record
-            Blink      at 1 range 7 .. 7;
-            Background at 1 range 4 .. 6;
-            Foreground at 1 range 0 .. 3;
-            Char       at 0 range 0 .. 7;
-        end record;
+   procedure Down
+     with
+       Global => (In_Out => Offset_State,
+                  Input  => Buffer_State,
+                  Output => Screen_State),
+     Depends => (Offset_State => Offset_State,
+                 Screen_State => (Buffer_State, Offset_State)),
+     Export,
+     Convention => C,
+     External_Name => "vga_down";
 
-    type Cursor_Location is new Integer range 0 .. 79;
-
-    type Line is array (Cursor_Location range 0 .. 79) of Symbol;
-    type Screen is array (Integer range 0 .. 24) of Line;
-
-    function Get_Buffer return System.Address
-      with
-        Import,
-        Convention => C,
-        External_Name => "get_buffer";
-
-    Cursor : Cursor_Location := 0;
-    Cur_Blink : Boolean := False;
-    Cur_Background : Background_Color := 0;
-    Cur_Foreground : Foreground_Color := 15;
-
-    VGA_Screen : Screen
-      with
-        Address => Get_Buffer,
-        Volatile,
-        Effective_Writes,
-        Async_Readers;
-
-    procedure Putchar (C : Character)
-      with
-        Global => (In_Out => (Cursor,
-                              Cur_Blink,
-                              Cur_Background,
-                              Cur_Foreground),
-                   Output => (VGA_Screen));
-
-    Ascii_State : Escape_Dfa.Escape_Mode := Escape_Dfa.Normal;
+   procedure Reset
+     with
+       Global => (Input  => (Buffer_State),
+                  Output => (Screen_State),
+                  In_Out => (Offset_State)),
+       Depends => (Offset_State => null,
+                   Screen_State => Buffer_State,
+                   null         => (Offset_State)),
+       Export,
+       Convention => C,
+       External_Name => "vga_reset";
 
 private
 
-    procedure Scroll
-      with Global => (In_Out => VGA_Screen);
+   type Background_Color is new Integer range 0 .. 7
+     with Size => 3;
+   type Foreground_Color is new Integer range 0 .. 15
+     with Size => 4;
+
+   Buffer_Size : constant Integer := 1024;
+   Screen_Size : constant Integer := 25;
+   type Offset is new Integer range 0 .. Buffer_Size - Screen_Size;
+
+   type Symbol is
+      record
+         Blink      : Boolean;
+         Background : Background_Color;
+         Foreground : Foreground_Color;
+         Char       : Character;
+      end record with
+     Size => 16;
+
+   for Symbol use
+      record
+         Blink      at 1 range 7 .. 7;
+         Background at 1 range 4 .. 6;
+         Foreground at 1 range 0 .. 3;
+         Char       at 0 range 0 .. 7;
+      end record;
+
+   type Cursor_Location is new Integer range 0 .. 79;
+
+   type Line is array (Cursor_Location range 0 .. 79) of Symbol;
+   type Buffer is array (Natural range <>) of Line;
+   subtype Screen is Buffer (0 .. Screen_Size - 1);
+   subtype Screen_Buffer is Buffer (0 .. Buffer_Size - 1);
+
+   function Get_Buffer return System.Address
+     with
+       Import,
+       Convention => C,
+       External_Name => "get_buffer",
+       Global => null;
+
+   procedure Window
+     with
+       Global => (Input  => (Buffer_State, Offset_State),
+                  Output => Screen_State),
+     Depends => (Screen_State => (Buffer_State, Offset_State));
+
+   procedure Scroll
+     with Global => (Input  => (Offset_State),
+                     In_Out => (Buffer_State),
+                     Output => (Cursor_State, Screen_State)),
+     Depends => (Cursor_State => null,
+                 Buffer_State => Buffer_State,
+                 Screen_State => (Buffer_State, Offset_State));
 
 end VGA;
