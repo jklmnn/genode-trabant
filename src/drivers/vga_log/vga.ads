@@ -105,12 +105,13 @@ private
                   Output => Screen_State),
      Depends => (Screen_State => (Buffer_State, Offset_State));
 
-   procedure Scroll
+   procedure Scroll (C : out Cursor_Location)
      with Global => (Input  => (Offset_State),
                      In_Out => (Buffer_State),
-                     Output => (Cursor_State, Screen_State)),
-     Depends => (Cursor_State => null,
+                     Output => (Screen_State)),
+     Depends => (C => null,
                  Buffer_State => Buffer_State,
-                 Screen_State => (Buffer_State, Offset_State));
+                 Screen_State => (Buffer_State, Offset_State)),
+     Post => C = 0;
 
 end VGA;

@@ -42,7 +42,7 @@ is
    begin
       pragma Warnings (Off, "pragma Restrictions (No_Exception_Propagation) in effect");
       if Cursor = 79 then
-         Scroll;
+         Scroll (Cursor);
       end if;
 
       Ascii_State := Escape_Dfa.Translate (Character'Pos (C), Ascii_State);
@@ -51,7 +51,7 @@ is
          when Escape_Dfa.Normal =>
             case Character'Pos (C) is
                when 10 =>
-                  Scroll;
+                  Scroll (Cursor);
                when 32 .. 126 =>
                   VGA_Buffer (Buffer_Size - 1) (Cursor) := VC;
                   Cursor := Cursor + 1;
@@ -83,7 +83,7 @@ is
       end case;
    end Putchar;
 
-   procedure Scroll
+   procedure Scroll (C : out Cursor_Location)
    is
       Empty : constant Symbol := (False, 0, 0, Character'Val (0));
    begin
@@ -91,7 +91,7 @@ is
          VGA_Buffer (I) := VGA_Buffer (I + 1);
       end loop;
       VGA_Buffer (VGA_Buffer'Last) := (others => Empty);
-      Cursor := 0;
+      C := 0;
       Window;
    end Scroll;
 
