@@ -1,0 +1,8 @@
+<runtime ram="1M" caps="50" binary="hello_world">
+    <requires/>
+    <config/>
+    <content>
+        <rom label="ld.lib.so"/>
+        <rom label="hello_world"/>
+    </content>
+</runtime>
