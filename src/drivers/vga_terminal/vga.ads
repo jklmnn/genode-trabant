@@ -8,6 +8,8 @@ with
 SPARK_Mode
 is
 
+   pragma Pure;
+
    type Background_Color is new Integer range 0 .. 7
      with Size => 3;
    type Foreground_Color is new Integer range 0 .. 15
@@ -68,13 +70,11 @@ is
          Buffer at 32 range 0 .. 1310719;
       end record;
 
-   function Create_Screen (Scr : System.Address) return VGA
+   procedure Initialize (S : in out VGA; A : System.Address)
      with
        Export,
        Convention => C,
-       External_Name => "vga_new_screen",
-       Pre => Scr /= System.Null_Address,
-       Post => Create_Screen'Result.Screen /= System.Null_Address;
+       External_Name => "vga_initialize";
 
    pragma Warnings (Off, "involves a tagged type which does not correspond to any C type");
 
@@ -86,15 +86,15 @@ is
 
    procedure Up (S : in out VGA)
      with
-     Export,
-     Convention => C,
-     External_Name => "vga_up";
+       Export,
+       Convention => C,
+       External_Name => "vga_up";
 
    procedure Down (S : in out VGA)
      with
-     Export,
-     Convention => C,
-     External_Name => "vga_down";
+       Export,
+       Convention => C,
+       External_Name => "vga_down";
 
    procedure Reset (S : in out VGA)
      with

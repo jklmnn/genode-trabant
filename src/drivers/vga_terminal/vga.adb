@@ -5,13 +5,21 @@ with
 SPARK_Mode
 is
 
-   function Create_Screen (Scr : System.Address) return VGA
+   procedure Initialize (S : in out VGA; A : System.Address)
    is
-      Screen : VGA;
    begin
-      Screen.Screen := Scr;
-      return Screen;
-   end Create_Screen;
+      S.Screen      := A;
+      S.Cursor      := 0;
+      S.Blink       := False;
+      S.Background  := 0;
+      S.Foreground  := 15;
+      S.Ascii_State := Escape_Dfa.Normal;
+      S.Offset      := Offset_Type'Last;
+      S.Buffer      := (others => (others => (Blink => False,
+                                              Background => 0,
+                                              Foreground => 0,
+                                              Char       => ' ')));
+   end Initialize;
 
 
    procedure Putchar

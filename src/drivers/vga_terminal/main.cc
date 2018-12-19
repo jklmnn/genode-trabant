@@ -35,7 +35,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
         Genode::Constructible<Genode::Attached_io_mem_dataspace> _fb_mem;
         Genode::Constructible<Input::Connection> _input;
         Genode::Signal_handler<Session_component> _input_sigh;
-        VGA _vga_screen;
+        Genode::Constructible<VGA> _vga_screen;
 
         void handle_key()
         {
@@ -43,14 +43,14 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
                 _input->for_each_event([&] (Input::Event const &ev) {
                         ev.handle_press([&] (Input::Keycode key, Genode::Codepoint) {
                                     switch(key){
-                                        case Input::KEY_ESC:    vga_reset(_vga_screen);   break;
-                                        case Input::KEY_UP:     vga_up(_vga_screen);      break;
-                                        case Input::KEY_DOWN:   vga_down(_vga_screen);    break;
+                                        case Input::KEY_ESC:    _vga_screen->reset();   break;
+                                        case Input::KEY_UP:     _vga_screen->up();      break;
+                                        case Input::KEY_DOWN:   _vga_screen->down();    break;
                                         case Input::KEY_PAGEUP:
-                                            for(int i = 0; i < 10; i++) vga_up(_vga_screen);
+                                            for(int i = 0; i < 10; i++) _vga_screen->up();
                                             break;
                                         case Input::KEY_PAGEDOWN:
-                                            for(int i = 0; i < 10; i++) vga_down(_vga_screen);
+                                            for(int i = 0; i < 10; i++) _vga_screen->down();
                                             break;
                                         default: break;
                                     }
@@ -101,7 +101,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             _fb_mem.construct(_env, _core_fb.addr, _core_fb.pitch * _core_fb.height,
                     true);
 
-            _vga_screen = vga_new_screen(reinterpret_cast<Genode::uint64_t const>(_fb_mem->local_addr<void>()));
+            _vga_screen.construct(_fb_mem->local_addr<void>());
             if(_input.constructed()){
                 _input->sigh(_input_sigh);
             }
@@ -118,7 +118,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             const int len = Genode::strlen(c_str);
 
             for(int i = 0; i < len; i++){
-                vga_putchar(_vga_screen, c_str[i]);
+                _vga_screen->putchar(c_str[i]);
             }
 
             return len;
