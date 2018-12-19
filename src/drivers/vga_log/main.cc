@@ -14,6 +14,7 @@
 #include <util/xml_node.h>
 #include <util/string.h>
 #include <input_session/connection.h>
+#include <ada/exception.h>
 
 static void *vga_buffer = 0;
 
@@ -29,6 +30,14 @@ extern "C" {
     extern void vga_up(void);
     extern void vga_down(void);
     extern void vga_reset(void);
+
+    Genode::uint64_t system__arith_64__add_with_ovflo_check(Genode::uint64_t x, Genode::uint64_t y)
+    {
+        Genode::uint64_t z = x + y;
+        if (z < x || z < y)
+            throw Ada::Exception::Overflow_Check();
+        return z;
+    }
 
 };
 
