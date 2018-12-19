@@ -1,0 +1,96 @@
+# netcup test
+
+set build_components {
+    core init
+    drivers/timer
+    drivers/vga_terminal
+    drivers/input/spec/ps2
+    test/log
+    test/vgalog
+}
+
+source ${genode_dir}/repos/base/run/platform_drv.inc
+append_platform_drv_build_components
+
+build $build_components
+
+create_boot_directory
+
+set config {
+<config prio_levels="2" verbose="yes">
+    <parent-provides>
+        <service name="ROM"/>
+        <service name="IRQ"/>
+        <service name="IO_MEM"/>
+        <service name="IO_PORT"/>
+        <service name="PD"/>
+        <service name="RM"/>
+        <service name="CPU"/>
+        <service name="LOG"/>
+    </parent-provides>
+    <default-route>
+        <any-service> <parent/> <any-child/> </any-service>
+    </default-route>
+    <default caps="1000"/>
+
+    <start name="timer">
+        <resource name="RAM" quantum="1M"/>
+        <provides> <service name="Timer"/> </provides>
+    </start>
+
+    <start name="vga_terminal_drv">
+        <resource name="RAM" quantum="20M"/>
+        <provides>
+            <service name="LOG"/>
+        </provides>
+    </start>
+
+    <start name="ps2_drv">
+        <resource name="RAM" quantum="1M"/>
+        <provides>
+            <service name="Input"/>
+        </provides>
+    </start>
+
+    <start name="test-log">
+        <resource name="RAM" quantum="1M"/>
+        <route>
+            <service name="LOG"><child name="vga_terminal_drv"/></service>
+            <any-service> <parent/> <any-child/> </any-service>
+        </route>
+    </start>
+
+    <start name="test-vgalog">
+        <resource name="RAM" quantum="1M"/>
+        <route>
+            <service name="LOG"><child name="vga_terminal_drv"/></service>
+            <any-service> <parent/> <any-child/> </any-service>
+        </route>
+    </start>
+}
+
+append_platform_drv_config
+
+append config {
+</config>
+}
+
+install_config $config
+
+set boot_modules {
+    core ld.lib.so init
+    ada.lib.so
+    timer
+    test-log
+    test-vgalog
+    vga_terminal_drv
+    ps2_drv
+}
+
+append_platform_drv_boot_modules
+
+build_boot_image $boot_modules
+
+append qemu_args " -net nic,model=e1000 -net user -m 2G"
+
+run_genode_until forever
