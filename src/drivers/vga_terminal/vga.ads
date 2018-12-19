@@ -45,17 +45,14 @@ is
    subtype Screen_Buffer is Buffer (0 .. Buffer_Size - 1);
 
    type VGA is record
-      Screen      : System.Address := System.Null_Address;
-      Cursor      : Cursor_Location := 0;
-      Blink       : Boolean := False;
-      Background  : Background_Color := 0;
-      Foreground  : Foreground_Color := 15;
-      Ascii_State : Escape_Dfa.Escape_Mode := Escape_Dfa.Normal;
-      Offset      : Offset_Type := Offset_Type'Last;
-      Buffer      : Screen_Buffer := (others => (others => (Blink => False,
-                                                            Background => 0,
-                                                            Foreground => 0,
-                                                            Char       => ' ')));
+      Screen      : System.Address;
+      Cursor      : Cursor_Location;
+      Blink       : Boolean;
+      Background  : Background_Color;
+      Foreground  : Foreground_Color;
+      Ascii_State : Escape_Dfa.Escape_Mode;
+      Offset      : Offset_Type;
+      Buffer      : Screen_Buffer;
    end record;
 
    for VGA use
@@ -70,11 +67,18 @@ is
          Buffer at 32 range 0 .. 1310719;
       end record;
 
-   procedure Initialize (S : in out VGA; A : System.Address)
+   function Initialized (S : VGA) return Boolean is
+     (S.Screen /= System.Null_Address)
+     with
+       Ghost;
+
+   procedure Initialize (S : out VGA; A : System.Address)
      with
        Export,
        Convention => C,
-       External_Name => "vga_initialize";
+       External_Name => "vga_initialize",
+       Pre => A /= System.Null_Address,
+       Post => Initialized (S);
 
    pragma Warnings (Off, "involves a tagged type which does not correspond to any C type");
 
@@ -82,32 +86,43 @@ is
      with
        Export,
        Convention => C,
-       External_Name => "vga_putchar";
+       External_Name => "vga_putchar",
+       Pre => Initialized (S),
+     Post => Initialized (S);
 
    procedure Up (S : in out VGA)
      with
        Export,
        Convention => C,
-       External_Name => "vga_up";
+       External_Name => "vga_up",
+       Pre => Initialized (S),
+     Post => Initialized (S);
 
    procedure Down (S : in out VGA)
      with
        Export,
        Convention => C,
-       External_Name => "vga_down";
+       External_Name => "vga_down",
+       Pre => Initialized (S),
+     Post => Initialized (S);
 
    procedure Reset (S : in out VGA)
      with
        Export,
        Convention => C,
-       External_Name => "vga_reset";
+       External_Name => "vga_reset",
+       Pre => Initialized (S),
+     Post => Initialized (S);
 
 private
 
-   procedure Window (S : VGA);
+   procedure Window (S : VGA)
+     with
+       Pre => Initialized (S);
 
    procedure Scroll (S : in out VGA)
      with
-       Post => S.Cursor = 0;
+       Pre => Initialized (S),
+     Post => S.Cursor = 0 and Initialized (S);
 
 end VGA;

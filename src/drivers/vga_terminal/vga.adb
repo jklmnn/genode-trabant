@@ -5,9 +5,12 @@ with
 SPARK_Mode
 is
 
-   procedure Initialize (S : in out VGA; A : System.Address)
+   procedure Initialize (S : out VGA; A : System.Address)
    is
    begin
+      if A = System.Null_Address then
+         raise Program_Error;
+      end if;
       S.Screen      := A;
       S.Cursor      := 0;
       S.Blink       := False;

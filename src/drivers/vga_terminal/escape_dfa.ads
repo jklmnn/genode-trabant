@@ -3,6 +3,8 @@ with
 SPARK_Mode
 is
 
+   pragma Pure;
+
    type Escape_Mode is (
                         Normal,
                         Start_Escape,
@@ -21,8 +23,6 @@ is
                         Graphics_Mode_Foreground_Colors_White,
                         Graphics_Mode_Background_Colors
                        );
-
-   Mode : Escape_Mode := Normal;
 
    function Translate (
                        Input : Integer;
