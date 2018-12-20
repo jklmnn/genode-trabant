@@ -14,32 +14,8 @@
 #include <util/xml_node.h>
 #include <util/string.h>
 #include <input_session/connection.h>
-#include <ada/exception.h>
 
-static void *vga_buffer = 0;
-
-extern "C" {
-
-    void *get_buffer()
-    {
-        return vga_buffer;
-    }
-
-    extern void vga___elabb();
-    extern void vga_putchar(char);
-    extern void vga_up(void);
-    extern void vga_down(void);
-    extern void vga_reset(void);
-
-    Genode::uint64_t system__arith_64__add_with_ovflo_check(Genode::uint64_t x, Genode::uint64_t y)
-    {
-        Genode::uint64_t z = x + y;
-        if (z < x || z < y)
-            throw Ada::Exception::Overflow_Check();
-        return z;
-    }
-
-};
+#include <vga.h>
 
 class Session_component : public Genode::Rpc_object<Genode::Log_session>
 {
@@ -60,20 +36,22 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
         Genode::Constructible<Input::Connection> _input;
         Genode::Signal_handler<Session_component> _input_sigh;
 
+        Genode::Constructible<VGA> _vga_screen;
+
         void handle_key()
         {
             if(_input.constructed()){
                 _input->for_each_event([&] (Input::Event const &ev) {
                         ev.handle_press([&] (Input::Keycode key, Genode::Codepoint) {
                                     switch(key){
-                                        case Input::KEY_ESC:    vga_reset();   break;
-                                        case Input::KEY_UP:     vga_up();      break;
-                                        case Input::KEY_DOWN:   vga_down();    break;
+                                        case Input::KEY_ESC:    _vga_screen->reset();   break;
+                                        case Input::KEY_UP:     _vga_screen->up();      break;
+                                        case Input::KEY_DOWN:   _vga_screen->down();    break;
                                         case Input::KEY_PAGEUP:
-                                            for(int i = 0; i < 10; i++) vga_up();
+                                            for(int i = 0; i < 10; i++) _vga_screen->up();
                                             break;
                                         case Input::KEY_PAGEDOWN:
-                                            for(int i = 0; i < 10; i++) vga_down();
+                                            for(int i = 0; i < 10; i++) _vga_screen->down();
                                             break;
                                         default: break;
                                     }
@@ -87,15 +65,10 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             _env(env),
             _fb_mem(),
             _input(),
-            _input_sigh(env.ep(), *this, &Session_component::handle_key)
+            _input_sigh(env.ep(), *this, &Session_component::handle_key),
+            _vga_screen()
         {
             unsigned fb_boot_type = 2;
-
-            try{
-                _input.construct(_env);
-            }catch (Genode::Service_denied){
-                Genode::warning("Failed to get Input session, no scrolling available.");
-            }
 
             try {
                 Genode::Xml_node fb = pinfo.sub_node("boot").sub_node("framebuffer");
@@ -123,11 +96,15 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             _fb_mem.construct(_env, _core_fb.addr, _core_fb.pitch * _core_fb.height,
                     true);
 
-            vga_buffer = _fb_mem->local_addr<void>();
-            vga___elabb();
-            if(_input.constructed()){
+            _vga_screen.construct(_fb_mem->local_addr<void>());
+
+            try{
+                _input.construct(_env);
                 _input->sigh(_input_sigh);
+            }catch (Genode::Service_denied){
+                Genode::warning("Failed to get Input session, no scrolling available.");
             }
+
         }
 
         Genode::size_t write(String const &str)
@@ -141,7 +118,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             const int len = Genode::strlen(c_str);
 
             for(int i = 0; i < len; i++){
-                vga_putchar(c_str[i]);
+                _vga_screen->putchar(c_str[i]);
             }
 
             return len;
