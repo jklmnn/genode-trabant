@@ -72,6 +72,8 @@ is
      with
        Ghost;
 
+   pragma Warnings (Off, "involves a tagged type which does not correspond to any C type");
+
    procedure Initialize (S : out VGA; A : System.Address)
      with
        Export,
@@ -79,8 +81,6 @@ is
        External_Name => "vga_initialize",
        Pre => A /= System.Null_Address,
        Post => Initialized (S);
-
-   pragma Warnings (Off, "involves a tagged type which does not correspond to any C type");
 
    procedure Putchar (S : in out VGA; C : Character)
      with
@@ -115,6 +115,9 @@ is
      Post => Initialized (S);
 
 private
+
+   procedure Copy (Virt : Screen;
+                   A    : System.Address);
 
    procedure Window (S : VGA)
      with

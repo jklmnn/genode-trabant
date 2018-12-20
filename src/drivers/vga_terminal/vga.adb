@@ -86,18 +86,27 @@ is
       Window (S);
    end Scroll;
 
-   procedure Window (S : VGA)
+   procedure Copy (Virt : Screen;
+                   A    : System.Address)
      with SPARK_Mode => Off
    is
       VGA_Screen : Screen
         with
-          Address => S.Screen,
+          Address => A,
           Volatile,
           Effective_Writes,
           Async_Readers;
    begin
-      VGA_Screen := S.Buffer (S.Buffer'First + Integer (S.Offset) ..
-                                  S.Buffer'First + Integer (S.Offset) + VGA_Screen'Length - 1);
+      VGA_Screen := Virt;
+   end Copy;
+
+   procedure Window (S : VGA)
+   is
+      V_Screen : Screen;
+   begin
+      V_Screen := S.Buffer (S.Buffer'First + Integer (S.Offset) ..
+                              S.Buffer'First + Integer (S.Offset) + V_Screen'Length - 1);
+      Copy(V_Screen, S.Screen);
    end Window;
 
    procedure Up (S : in out VGA)
