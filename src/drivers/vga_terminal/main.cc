@@ -75,12 +75,6 @@ struct Main {
         {
             unsigned fb_boot_type = 2;
 
-            try{
-                _input.construct(_env);
-            }catch (Genode::Service_denied){
-                Genode::warning("Failed to get Input session, no scrolling available.");
-            }
-
             try {
                 Genode::Xml_node fb = _platform_info.xml().sub_node("boot").sub_node("framebuffer");
 
@@ -108,8 +102,13 @@ struct Main {
                     true);
 
             _vga_screen.construct(_fb_mem->local_addr<void>());
-            if(_input.constructed()){
+            _terminal.read_avail_sigh(_term_sigh);
+
+            try{
+                _input.construct(_env);
                 _input->sigh(_input_sigh);
+            }catch (Genode::Service_denied){
+                Genode::warning("Failed to get Input session, no scrolling available.");
             }
         }
 
@@ -125,7 +124,7 @@ struct Main {
 	{
             Genode::log("VGA terminal");
             initialize_vga();
-            _terminal.read_avail_sigh(_term_sigh);
+            term_read();
 	}
 };
 

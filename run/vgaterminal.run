@@ -58,14 +58,12 @@ set config {
         </provides>
     </start>
 
-    <!--
     <start name="ps2_drv">
         <resource name="RAM" quantum="1M"/>
         <provides>
             <service name="Input"/>
         </provides>
     </start>
-    -->
 
     <start name="test-log">
         <resource name="RAM" quantum="1M"/>
