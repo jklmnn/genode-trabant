@@ -6,22 +6,18 @@
 
 #include <base/component.h>
 #include <base/attached_rom_dataspace.h>
-#include <dataspace/capability.h>
-#include <os/static_root.h>
-#include <log_session/log_session.h>
 #include <base/attached_io_mem_dataspace.h>
 #include <util/reconstructible.h>
 #include <util/xml_node.h>
 #include <util/string.h>
 #include <input_session/connection.h>
+#include <terminal_session/connection.h>
 
 #include <vga.h>
 
-class Session_component : public Genode::Rpc_object<Genode::Log_session>
-{
-    private:
+struct Main {
 
-        Genode::Env &_env;
+	Genode::Env &_env;
 
         struct Fb_desc
         {
@@ -32,10 +28,26 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             Genode::uint32_t bpp;
         } _core_fb { };
 
+        Terminal::Connection _terminal;
+
+        Genode::Signal_handler<Main> _term_sigh;
         Genode::Constructible<Genode::Attached_io_mem_dataspace> _fb_mem;
-        Genode::Constructible<Input::Connection> _input;
-        Genode::Signal_handler<Session_component> _input_sigh;
         Genode::Constructible<VGA> _vga_screen;
+        Genode::Attached_rom_dataspace _platform_info;
+        Genode::Constructible<Input::Connection> _input;
+        Genode::Signal_handler<Main> _input_sigh;
+
+        void term_read()
+        {
+            char read_buffer[200];
+            unsigned num_bytes = 1;
+            while(num_bytes > 0){
+                num_bytes = _terminal.read(read_buffer, sizeof(read_buffer));
+                for(unsigned i = 0; i < num_bytes; i++){
+                    _vga_screen->putchar(read_buffer[i]);
+                }
+            }
+        }
 
         void handle_key()
         {
@@ -59,13 +71,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             }
         }
 
-    public:
-        Session_component(Genode::Env &env, Genode::Xml_node pinfo) :
-            _env(env),
-            _fb_mem(),
-            _input(),
-            _input_sigh(env.ep(), *this, &Session_component::handle_key),
-            _vga_screen()
+        void initialize_vga()
         {
             unsigned fb_boot_type = 2;
 
@@ -76,7 +82,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             }
 
             try {
-                Genode::Xml_node fb = pinfo.sub_node("boot").sub_node("framebuffer");
+                Genode::Xml_node fb = _platform_info.xml().sub_node("boot").sub_node("framebuffer");
 
                 fb.attribute("phys").value(&_core_fb.addr);
                 fb.attribute("width").value(&_core_fb.width);
@@ -107,43 +113,19 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             }
         }
 
-        Genode::size_t write(String const &str)
-        {
-            if (!(str.valid_string())){
-                Genode::error("invalid string");
-                return 0;
-            }
-
-            const char *c_str = str.string();
-            const int len = Genode::strlen(c_str);
-
-            for(int i = 0; i < len; i++){
-                _vga_screen->putchar(c_str[i]);
-            }
-
-            return len;
-        }
-};
-
-struct Main {
-
-	Genode::Env &_env;
-
-	Genode::Attached_rom_dataspace _pinfo {
-		_env,
-		"platform_info"
-	};
-
-	Session_component _log {
-		_env,
-		_pinfo.xml(),
-	};
-
-	Genode::Static_root<Genode::Log_session> _log_root {_env.ep().manage(_log)};
-
-	Main(Genode::Env &env) : _env(env)
+	Main(Genode::Env &env) :
+            _env(env),
+            _terminal(env, "VGA"),
+            _term_sigh(env.ep(), *this, &Main::term_read),
+            _fb_mem(),
+            _vga_screen(),
+            _platform_info(env, "platform_info"),
+            _input(),
+            _input_sigh(env.ep(), *this, &Main::handle_key)
 	{
-		env.parent().announce(env.ep().manage(_log_root));
+            Genode::log("VGA terminal");
+            initialize_vga();
+            _terminal.read_avail_sigh(_term_sigh);
 	}
 };
 
