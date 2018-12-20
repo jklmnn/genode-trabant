@@ -1,5 +1,0 @@
-project VGA is
-
-   for Source_Dirs use (".");
-
-end VGA;
