@@ -135,6 +135,9 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             for(int i = 0; i < len; i++){
                 vga_putchar(c_str[i]);
             }
+            if(c_str[len - 1] != '\n'){
+                vga_putchar('\n');
+            }
 
             return len;
         }
