@@ -2,7 +2,7 @@
 
 set build_components {
     core init
-    drivers/timer
+    timer
     drivers/vga_log
     test/log
     test/vgalog
@@ -72,7 +72,7 @@ install_config $config
 
 set boot_modules {
     core ld.lib.so init
-    ada.lib.so
+    spark.lib.so
     timer
     test-log
     test-vgalog

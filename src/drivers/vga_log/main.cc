@@ -16,6 +16,7 @@
 #include <input_session/connection.h>
 
 static void *vga_buffer = 0;
+Genode::Env *__genode_env;
 
 extern "C" {
 
@@ -121,7 +122,7 @@ class Session_component : public Genode::Rpc_object<Genode::Log_session>
             }
         }
 
-        Genode::size_t write(String const &str)
+        Genode::size_t write(String const &str) override
         {
             if (!(str.valid_string())){
                 Genode::error("invalid string");
@@ -162,7 +163,8 @@ struct Main {
 };
 
 void Component::construct(Genode::Env &env) {
-
+        __genode_env = &env;
+        env.exec_static_constructors();
 	static Main inst(env);
 
 }
