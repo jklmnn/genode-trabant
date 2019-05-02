@@ -2,9 +2,12 @@
 
 set build_components {
     core init
-    drivers/timer
+    timer
     drivers/vga_log
-    test/log
+    drivers/usb
+    drivers/ahci
+    drivers/nic
+    app/log_core
 }
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
@@ -35,7 +38,7 @@ set config {
         <resource name="RAM" quantum="1M"/>
         <provides> <service name="Timer"/> </provides>
     </start>
-    
+
     <start name="vga_log_drv">
         <resource name="RAM" quantum="4M"/>
         <provides>
@@ -43,13 +46,47 @@ set config {
         </provides>
     </start>
 
-    <start name="test-log">
-        <resource name="RAM" quantum="1M"/>
+    <start name="log_core">
+        <resource name="RAM" quantum="16M"/>
+        <config period_ms="2000"/>
         <route>
-            <service name="LOG"><child name="vga_log_drv"/></service>
-            <any-service> <parent/> <any-child/> </any-service>
+            <service name="ROM" unscoped_label="log_core"><parent/></service>
+            <service name="ROM" unscoped_label="ls.lib.so"><parent/></service>
+            <service name="ROM" label="log"><parent label="core_log"/></service>
+            <service name="LOG" label="log"><child name="vga_log_drv"/></service>
+            <any-service><parent/><any-child/></any-service>
         </route>
     </start>
+
+    <start name="usb_drv">
+        <resource name="RAM" quantum="16M"/>
+        <!--
+        <provides>
+            <service name="Input"/>
+        </provides>
+        -->
+        <config bios_handoff="yes" uhci="yes" ohci="yes" ehci="yes" xhci="yes">
+            <hid/>
+        </config>
+    </start>
+
+    <start name="ahci_drv">
+        <resource name="RAM" quantum="16M"/>
+        <provides>
+            <service name="Block"/>
+        </provides>
+        <config>
+            <report ports="yes"/>
+        </config>
+    </start>
+
+    <start name="nic_drv">
+        <resource name="RAM" quantum="8M"/>
+        <provides>
+            <service name="Nic"/>
+        </provides>
+    </start>
+
 }
 
 append_platform_drv_config
@@ -63,14 +100,18 @@ install_config $config
 set boot_modules {
     core ld.lib.so init
     timer
-    test-log
+    spark.lib.so
     vga_log_drv
+    usb_drv
+    ahci_drv
+    nic_drv
+    log_core
 }
 
 append_platform_drv_boot_modules
 
 build_boot_image $boot_modules
 
-append qemu_args " -net nic,model=e1000 -net user -m 2G"
+append qemu_args " -net nic,model=e1000 -net user -m 2G -usb -device usb-kbd"
 
 run_genode_until forever
