@@ -81,6 +81,7 @@ set config {
     </start>
 
     <start name="nic_drv">
+        <binary name="ipxe_nic_drv"/>
         <resource name="RAM" quantum="8M"/>
         <provides>
             <service name="Nic"/>
@@ -104,7 +105,7 @@ set boot_modules {
     vga_log_drv
     usb_drv
     ahci_drv
-    nic_drv
+    ipxe_nic_drv
     log_core
 }
 
